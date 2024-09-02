@@ -24,7 +24,6 @@ def insert_data(conn, table_name, headers, data):
         cursor = conn.cursor()
         cursor.execute(sql, data)
         conn.commit()
-        print(f"Datos insertados en la tabla {table_name}: {data}")
     except sqlite3.Error as e:
         print(f"Error al insertar datos en la tabla {table_name}: {e} - SQL: {sql} - Datos: {data}")
 
