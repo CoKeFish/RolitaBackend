@@ -10,7 +10,6 @@ def guardar_en_base_de_datos(df, db_path, nombre_tabla):
         conn = sqlite3.connect(db_path)
         df.to_sql(nombre_tabla, conn, if_exists='append', index=False)
         conn.close()
-        print(f"Datos guardados en la base de datos {db_path} en la tabla {nombre_tabla}.")
     except sqlite3.Error as e:
         print(f"Error al guardar en la base de datos: {e}")
 

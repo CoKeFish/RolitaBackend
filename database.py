@@ -37,7 +37,6 @@ def create_tables(conn):
             columns = ', '.join([f"{header.replace(' ', '_')} TEXT" for header in COMMON_HEADERS + headers])
             sql = f"CREATE TABLE IF NOT EXISTS {tipo} ({columns})"
             cursor.execute(sql)
-            print(f"Tabla {tipo} creada con columnas: {columns}")
         conn.commit()
         print("Todas las tablas creadas exitosamente.")
     except sqlite3.Error as e:
