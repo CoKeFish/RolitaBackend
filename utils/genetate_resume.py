@@ -1,6 +1,7 @@
 ﻿import pandas as pd
 import sqlite3
-from datetime import datetime, timedelta
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 
 def obtener_datos_por_semana(db_path):
     """
@@ -8,27 +9,58 @@ def obtener_datos_por_semana(db_path):
     """
     # Conectar a la base de datos
     conn = sqlite3.connect(db_path)
-    query = """
+
+    # Query para obtener datos de sensores
+    query_sensores = """
     SELECT time, bus
     FROM sensores
     ORDER BY time
     """
-    df = pd.read_sql_query(query, conn)
+
+    # Query para obtener datos de P60
+    query_P60 = """
+    SELECT fechaHoraLecturaDato AS time, substr(idVehiculo, -4, 4) AS bus
+    FROM P60
+    ORDER BY fechaHoraLecturaDato
+    """
+
+    # Leer los datos de ambas tablas
+    df_sensores = pd.read_sql_query(query_sensores, conn)
+    df_P60 = pd.read_sql_query(query_P60, conn)
+
     conn.close()
 
-    # Convertir la columna de fecha a tipo datetime usando 'mixed' para manejar formatos mixtos
-    df['time'] = pd.to_datetime(df['time'], format='mixed')
+    # Convertir las columnas de fecha a tipo datetime
+    df_sensores['time'] = pd.to_datetime(df_sensores['time'], format='mixed')
+    df_P60['time'] = pd.to_datetime(df_P60['time'], format='mixed')
 
-    # Agregar columna de semana, año y día de la semana
-    df['Semana'] = df['time'].apply(lambda x: x.strftime('%U'))
-    df['Año'] = df['time'].apply(lambda x: x.strftime('%Y'))
-    df['DíaSemana'] = df['time'].apply(lambda x: x.strftime('%A'))
+    # Extraer los últimos 4 dígitos del bus para alinearlo con idVehiculo
+    df_sensores['bus'] = df_sensores['bus'].astype(str).str[-4:]
+
+    # Agregar columna de semana, año y día de la semana a ambos DataFrames
+    for df in [df_sensores, df_P60]:
+        df['Semana'] = df['time'].apply(lambda x: x.strftime('%U'))
+        df['Año'] = df['time'].apply(lambda x: x.strftime('%Y'))
+        df['DíaSemana'] = df['time'].apply(lambda x: x.strftime('%A'))
+
+    # Agregar etiquetas para identificar la fuente de los datos
+    df_sensores['source'] = 'sensores'
+    df_P60['source'] = 'P60'
+
+    # Concatenar ambos DataFrames
+    combined_df = pd.concat([df_sensores, df_P60])
 
     # Agrupar por Año, Semana, Día de la semana, y bus
-    grouped = df.groupby(['Año', 'Semana', 'DíaSemana', 'bus']).agg(
+    grouped = combined_df.groupby(['Año', 'Semana', 'DíaSemana', 'bus', 'source']).agg(
         HoraInicio=('time', 'min'),
         HoraFin=('time', 'max')
     ).reset_index()
+
+    # Crear columna combinada para mostrar la información en cada celda
+    grouped['info'] = grouped.apply(
+        lambda row: f"{row['bus']} ({row['HoraInicio'].strftime('%H:%M')} - {row['HoraFin'].strftime('%H:%M')}) [{row['source']}]",
+        axis=1
+    )
 
     return grouped
 
@@ -44,20 +76,19 @@ def crear_informe_excel(db_path, output_file):
         for año in datos['Año'].unique():
             datos_año = datos[datos['Año'] == año]
 
-            # Crear una tabla pivotada donde las filas son semanas y las columnas son días de la semana
+            # Crear una tabla pivotada donde las filas son combinaciones de semana y bus
             pivot_table = pd.pivot_table(
                 datos_año,
-                index='Semana',
+                index=['Semana', 'bus'],  # Índice combinado de semana y bus
                 columns='DíaSemana',
-                values=['bus', 'HoraInicio', 'HoraFin'],
-                aggfunc=lambda x: '\n'.join(f"{bus} ({inicio.time()} - {fin.time()})"
-                                            for bus, inicio, fin in zip(datos_año['bus'], datos_año['HoraInicio'], datos_año['HoraFin']))
+                values='info',  # Usar la columna combinada 'info'
+                aggfunc=lambda x: '\n'.join(x),  # Combinar múltiples entradas por día
+                fill_value=''  # Rellenar valores vacíos con cadenas vacías
             )
 
             # Ordenar columnas de días de la semana
             dias_ordenados = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-            # Reorganizar las columnas en el orden de los días de la semana
-            pivot_table = pivot_table.reindex(columns=pd.MultiIndex.from_product([['bus', 'HoraInicio', 'HoraFin'], dias_ordenados]))
+            pivot_table = pivot_table.reindex(columns=dias_ordenados)
 
             # Eliminar semanas sin datos (no se dejarán en blanco)
             pivot_table.dropna(how='all', inplace=True)
@@ -65,7 +96,32 @@ def crear_informe_excel(db_path, output_file):
             # Guardar cada tabla en una hoja de Excel
             pivot_table.to_excel(writer, sheet_name=str(año))
 
-    print(f"Informe guardado en {output_file}.")
+    # Cargar el archivo Excel guardado para aplicar estilos de color
+    workbook = load_workbook(output_file)
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        # Definir colores de relleno
+        color_naranja = PatternFill(start_color="FFA500", end_color="FFA500", fill_type="solid")  # Naranja
+        color_amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Amarillo
+        color_verde = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")  # Verde
+
+        # Aplicar color a las celdas basadas en la presencia de datos en 'sensores' y 'P60'
+        for row in sheet.iter_rows(min_row=2, min_col=2):
+            for cell in row:
+                if cell.value:  # Solo colorear celdas no vacías
+                    contains_sensores = '[sensores]' in cell.value
+                    contains_P60 = '[P60]' in cell.value
+                    if contains_sensores and contains_P60:
+                        cell.fill = color_verde
+                    elif contains_sensores:
+                        cell.fill = color_naranja
+                    elif contains_P60:
+                        cell.fill = color_amarillo
+
+    # Guardar los cambios en el archivo
+    workbook.save(output_file)
+
+    print(f"Informe guardado en {output_file} con celdas coloreadas.")
 
 
 if __name__ == "__main__":
