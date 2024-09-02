@@ -44,8 +44,8 @@ def obtener_datos_por_semana(db_path):
         df['DíaSemana'] = df['time'].apply(lambda x: x.strftime('%A'))
 
     # Agregar etiquetas para identificar la fuente de los datos
-    df_sensores['source'] = 'sensores'
-    df_P60['source'] = 'P60'
+    df_sensores['source'] = 'TXT'
+    df_P60['source'] = 'LOG'
 
     # Concatenar ambos DataFrames
     combined_df = pd.concat([df_sensores, df_P60])
@@ -56,11 +56,14 @@ def obtener_datos_por_semana(db_path):
         HoraFin=('time', 'max')
     ).reset_index()
 
-    # Crear columna combinada para mostrar la información en cada celda
-    grouped['info'] = grouped.apply(
-        lambda row: f"{row['bus']} ({row['HoraInicio'].strftime('%H:%M')} - {row['HoraFin'].strftime('%H:%M')}) [{row['source']}]",
-        axis=1
-    )
+    # Crear columna combinada para mostrar la información en cada celda sin repetir el bus
+    def format_info(row):
+        if row['source'] == 'TXT':
+            return f"({row['HoraInicio'].strftime('%H:%M')} - {row['HoraFin'].strftime('%H:%M')}) [TXT]"
+        else:  # source is 'LOG'
+            return "[LOG]"
+
+    grouped['info'] = grouped.apply(format_info, axis=1)
 
     return grouped
 
@@ -109,13 +112,13 @@ def crear_informe_excel(db_path, output_file):
         for row in sheet.iter_rows(min_row=2, min_col=2):
             for cell in row:
                 if cell.value:  # Solo colorear celdas no vacías
-                    contains_sensores = '[sensores]' in cell.value
-                    contains_P60 = '[P60]' in cell.value
-                    if contains_sensores and contains_P60:
+                    contains_txt = '[TXT]' in cell.value
+                    contains_log = '[LOG]' in cell.value
+                    if contains_txt and contains_log:
                         cell.fill = color_verde
-                    elif contains_sensores:
+                    elif contains_txt:
                         cell.fill = color_naranja
-                    elif contains_P60:
+                    elif contains_log:
                         cell.fill = color_amarillo
 
     # Guardar los cambios en el archivo
