@@ -1,46 +1,7 @@
 ﻿import json
-import re
 from datetime import datetime
 
-# Patrón para identificar el inicio de cada log, basado en la fecha/hora
-LOG_PATTERN = re.compile(r'\[\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}]')
-
-# Constantes para los encabezados
-COMMON_HEADERS = ["versionTrama", "idRegistro", "idOperador", "idVehiculo", "idRuta", "idConductor",
-                  "fechaHoraLecturaDato", "fechaHoraEnvioDato", "tipoBus", "latitud", "longitud", "tipoTrama",
-                  "tecnologiaMotor", "tramaRetransmitida", "tipoFreno", ]
-
-HEADERS_SPECIFIC = {
-    "P20": ["velocidadVehiculo", "aceleracionVehiculo"],
-    "P60": ["temperaturaMotor", "presionAceiteMotor", "velocidadVehiculo", "aceleracionVehiculo",
-            "revolucionesMotor", "estadoDesgasteFrenos", "kilometrosOdometro", "consumoCombustible",
-            "nivelTanqueCombustible", "consumoEnergia", "regeneracionEnergia", "nivelRestanteEnergia",
-            "porcentajeEnergiaGenerada", "temperaturaSts", "usoCpuSts", "memRamSts", "memDiscoSts",
-            "temperaturaBaterias", "sentidoMarcha"],
-    "EV1": ["codigoEvento", "peso", "temperaturaCabina", "estimacionOcupacionSuben",
-            "estimacionOcupacionBajan", "estimacionOcupacionAbordo"],
-    "EV2": ["codigoEvento", "estadoAperturaCierrePuertas"],
-    "EV6": ["codigoEvento"],
-    "EV7": ["codigoEvento"],
-    "EV8": ["codigoEvento"],
-    "EV12": ["codigoEvento"],
-    "EV13": ["codigoEvento"],
-    "EV14": ["codigoEvento"],
-    "EV15": ["codigoEvento"],
-    "EV16": ["codigoEvento"],
-    "EV17": ["codigoEvento"],
-    "EV18": ["codigoEvento"],
-    "EV19": ["codigoEvento", "codigoComportamientoAnomalo"],
-    "EV20": ["codigoEvento", "porcentajeCargaBaterias"],
-    "EV21": ["codigoEvento", "porcentajeCargaBaterias"],
-    "ALA1": ["codigoAlarma", "nivelAlarma", "aceleracionVehiculo"],
-    "ALA2": ["codigoAlarma", "nivelAlarma", "aceleracionVehiculo"],
-    "ALA3": ["codigoAlarma", "nivelAlarma", "velocidadVehiculo"],
-    "ALA5": ["codigoAlarma", "nivelAlarma", "codigoCamara"],
-    "ALA8": ["codigoAlarma", "nivelAlarma", "estadoCinturonSeguridad"],
-    "ALA9": ["codigoAlarma", "nivelAlarma", "estadoInfoEntretenimiento"],
-    "ALA10": ["codigoAlarma", "nivelAlarma", "estadoDesgasteFrenos"],
-}
+from config import LOG_PATTERN
 
 
 def extract_json_objects(logs):
