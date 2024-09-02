@@ -1,5 +1,6 @@
 import sqlite3
-from data_extractor import extract_json_objects, extract_values, COMMON_HEADERS, HEADERS_SPECIFIC
+
+from config import HEADERS_SPECIFIC, COMMON_HEADERS
 
 
 def create_connection(db_path):
@@ -33,8 +34,10 @@ def create_tables(conn):
     try:
         cursor = conn.cursor()
         for tipo, headers in HEADERS_SPECIFIC.items():
+            # Combinar COMMON_HEADERS y los encabezados específicos con sus tipos de datos
+            combined_headers = COMMON_HEADERS + headers
             # Asegúrate de que los nombres de columnas no tengan espacios o caracteres no permitidos
-            columns = ', '.join([f"{header.replace(' ', '_')} TEXT" for header in COMMON_HEADERS + headers])
+            columns = ', '.join([f"{header.replace(' ', '_')} {dtype}" for header, dtype in combined_headers])
             sql = f"CREATE TABLE IF NOT EXISTS {tipo} ({columns})"
             cursor.execute(sql)
         conn.commit()

@@ -1,10 +1,7 @@
 ﻿# file_processor.py
-
-import os
-import shutil
-import sqlite3
+from config import HEADERS_SPECIFIC, COMMON_HEADERS
+from data_extractor import extract_json_objects, extract_values
 from database import create_connection, insert_data, create_tables
-from data_extractor import extract_json_objects, extract_values, COMMON_HEADERS, HEADERS_SPECIFIC
 
 
 def process_file(input_path, output_path, db_path):
@@ -32,8 +29,13 @@ def process_file(input_path, output_path, db_path):
 
         # Verificar si el tipo es válido y está en funciones_extraccion
         if tipo in funciones_extraccion:
-            headers = COMMON_HEADERS + HEADERS_SPECIFIC[tipo]
+            # Extraer solo los nombres de columnas para la inserción de datos
+            headers = [header for header, _ in COMMON_HEADERS] + [header for header, _ in HEADERS_SPECIFIC[tipo]]
+
+            # Extraer los valores de datos en el orden correcto
             datos_ordenados = funciones_extraccion[tipo](obj, headers)
+
+            # Insertar los datos en la tabla correspondiente
             insert_data(conn, tipo, headers, datos_ordenados)
         else:
             # Proporciona un mensaje de depuración más detallado
