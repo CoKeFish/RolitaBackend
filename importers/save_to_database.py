@@ -1,47 +1,84 @@
 ﻿# save_to_database.py
 
-import sqlite3
-import pandas as pd
+
+import psycopg2
+from psycopg2 import sql
 
 
-def guardar_en_base_de_datos(df, db_path, nombre_tabla):
-    """Guarda un DataFrame en una base de datos SQLite."""
+def guardar_en_base_de_datos(df, db_params, nombre_tabla):
+    """
+    Guarda un DataFrame en una base de datos PostgreSQL.
+    
+    Args:
+        df (pandas.DataFrame): El DataFrame que se va a guardar.
+        db_params (dict): Parámetros de conexión a la base de datos.
+        nombre_tabla (str): Nombre de la tabla en la que se guardarán los datos.
+    """
     try:
-        conn = sqlite3.connect(db_path)
-        df.to_sql(nombre_tabla, conn, if_exists='append', index=False)
-        conn.close()
-    except sqlite3.Error as e:
-        print(f"Error al guardar en la base de datos: {e}")
-
-
-def obtener_id_ruta_unicos(db_path, nombre_tabla):
-    """Obtiene valores únicos de idRuta de una tabla específica en la base de datos."""
-    try:
-        conn = sqlite3.connect(db_path)
+        # Conectar a la base de datos PostgreSQL
+        conn = psycopg2.connect(**db_params)
+        # crear_tabla_sensores(conn)  # Crear la tabla 'sensores' si no existe
         cursor = conn.cursor()
-        # Consulta para obtener valores únicos de idRuta
-        cursor.execute(f"SELECT DISTINCT idRuta FROM {nombre_tabla}")
-        resultados = cursor.fetchall()
-        conn.close()
-        # Devolver los resultados como una lista de valores
-        return [resultado[0] for resultado in resultados]
-    except sqlite3.Error as e:
-        print(f"Error al consultar la base de datos: {e}")
-        return []
+
+        # Obtener los nombres de las columnas del DataFrame
+        columns = list(df.columns)
+        columns_sql = ', '.join(columns)
+        placeholders = ', '.join(['%s'] * len(columns))
+
+        # Crear la consulta SQL de inserción
+        insert_sql = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+            sql.Identifier(nombre_tabla),
+            sql.SQL(columns_sql),
+            sql.SQL(placeholders)
+        )
+
+        # Convertir el DataFrame en una lista de tuplas para psycopg2
+        data = [tuple(row) for row in df.itertuples(index=False, name=None)]
+
+        # Ejecutar la inserción en lotes
+        cursor.executemany(insert_sql.as_string(conn), data)
+
+        # Confirmar la transacción
+        conn.commit()
+        print(f"Datos guardados en la tabla {nombre_tabla} exitosamente.")
+
+    except psycopg2.Error as e:
+        print(f"Error al guardar en la base de datos PostgreSQL: {e}")
+        conn.rollback()  # Revertir la transacción si hay un error
+    finally:
+        # Cerrar el cursor y la conexión
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
-if __name__ == "__main__":
-    from sensor_data_processor import sensor
 
-    # Cambiar "ruta_de_la_carpeta" por la ruta real donde están los archivos .txt
-    ruta_de_la_carpeta = "ruta_de_la_carpeta"
-
-    # Procesar los archivos de sensores
-    datos = sensor(ruta_de_la_carpeta)
-
-    # Definir la ruta de la base de datos SQLite y el nombre de la tabla
-    db_path = 'ruta_a_mi_base_de_datos.db'
-    nombre_tabla = 'sensores'
-
-    # Guardar los datos en la base de datos
-    guardar_en_base_de_datos(datos, db_path, nombre_tabla)
+def crear_tabla_sensores(conn):
+    """
+    Crea la tabla 'sensores' en la base de datos PostgreSQL si no existe.
+    """
+    try:
+        cursor = conn.cursor()
+        # Definir la consulta SQL para crear la tabla
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS sensores (
+            time TIMESTAMP,
+            ax DOUBLE PRECISION,
+            ay DOUBLE PRECISION,
+            az DOUBLE PRECISION,
+            lat DOUBLE PRECISION,
+            lon DOUBLE PRECISION
+        );
+        """
+        # Ejecutar la consulta
+        cursor.execute(create_table_query)
+        # Confirmar la transacción
+        conn.commit()
+        print("Tabla 'sensores' creada exitosamente o ya existe.")
+    except psycopg2.Error as e:
+        print(f"Error al crear la tabla 'sensores': {e}")
+        conn.rollback()  # Revertir la transacción si hay un error
+    finally:
+        # Cerrar el cursor
+        cursor.close()

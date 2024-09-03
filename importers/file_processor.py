@@ -26,7 +26,7 @@ def process_file(input_path: str):
     conn = create_connection(db_params)
 
     # Crear tablas si no existen
-    create_tables(conn)
+    #create_tables(conn)
 
     # Cargar datos existentes al inicio
     load_existing_data(conn)

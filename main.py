@@ -1,6 +1,7 @@
 import os
 import argparse
 
+from importers.config import db_params
 from importers.file_processor import process_file
 from importers.save_to_database import guardar_en_base_de_datos
 from importers.sensor_data_processor import sensor
@@ -58,7 +59,7 @@ def procesar_archivos_en_carpeta(carpeta, tipo_archivo, numero_bus):
         ruta_archivo = os.path.join(carpeta, archivo)
         print(f"Procesando archivo de texto: {ruta_archivo}")
         datos = sensor(ruta_archivo, numero_bus)  # Proceso de archivos de texto para datos de sensores
-        guardar_en_base_de_datos(datos, 'sensores')
+        guardar_en_base_de_datos(datos, db_params, 'sensores')
 
 
 if __name__ == "__main__":

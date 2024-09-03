@@ -31,17 +31,40 @@ def importar_datos(ruta_archivo, nombres_columnas, tipos_columnas, numero_bus):
 def sensor(input_path, numero_bus=None):
     """
     Procesa un archivo de texto o todos los archivos de texto en una carpeta y los concatena en un solo DataFrame.
+    Solo selecciona las columnas relevantes: 'time', 'ax', 'ay', 'az', 'lat', 'lon'.
     """
     datos = []  # Lista para almacenar los DataFrames
 
-    # Nombres de las columnas y tipos correspondientes
-    nombres_columnas = ["time", "ax", "ay", "az", "mx", "my", "mz", "gx", "gy", "gz", "orx", "oy", "or", "lat", "lon"]
-    tipos_columnas = ["datetime", "float64", "float64", "float64", "float64", "float64", "float64",
-                      "float64", "float64", "float64", "float64", "float64", "float64", "float64", "float64"]
+    # Índices de las columnas que necesitamos (sin encabezados)
+    columnas_relevantes = [0, 1, 2, 3, 13, 14]  # Correspondiente a 'time', 'ax', 'ay', 'az', 'lat', 'lon'
+
+    # Nombres de las columnas seleccionadas
+    nombres_columnas = ["time", "ax", "ay", "az", "lat", "lon"]
+
+    # Función interna para importar datos desde un archivo CSV sin encabezado
+    def importar_datos(input_file):
+        try:
+            # Leer el archivo CSV sin encabezado
+            df = pd.read_csv(input_file, header=None, usecols=columnas_relevantes, names=nombres_columnas)
+
+            # Convertir 'time' a formato datetime
+            df['time'] = pd.to_datetime(df['time'], errors='coerce')
+
+            # Convertir otras columnas a float
+            for columna in ['ax', 'ay', 'az', 'lat', 'lon']:
+                df[columna] = pd.to_numeric(df[columna], errors='coerce')
+
+            # Filtrar filas con datos faltantes en columnas esenciales
+            df.dropna(subset=['time', 'ax', 'ay', 'az', 'lat', 'lon'], inplace=True)
+
+            return df
+        except Exception as e:
+            print(f"Error al importar datos desde {input_file}: {e}")
+            return None
 
     # Si es un archivo individual
     if os.path.isfile(input_path) and input_path.endswith('.txt'):
-        df = importar_datos(input_path, nombres_columnas, tipos_columnas, numero_bus)
+        df = importar_datos(input_path)
         if df is not None:
             datos.append(df)
 
@@ -50,7 +73,7 @@ def sensor(input_path, numero_bus=None):
         archivos = [f for f in os.listdir(input_path) if f.endswith('.txt')]
         for archivo in archivos:
             ruta_archivo = os.path.join(input_path, archivo)
-            df = importar_datos(ruta_archivo, nombres_columnas, tipos_columnas, numero_bus)
+            df = importar_datos(ruta_archivo)
             if df is not None:
                 datos.append(df)
 
@@ -61,11 +84,3 @@ def sensor(input_path, numero_bus=None):
     else:
         print("No se encontraron archivos de datos o hubo errores al procesar.")
         return pd.DataFrame()  # Retornar un DataFrame vacío si no hay datos
-
-
-if __name__ == "__main__":
-    # Ejemplo de uso: Procesar un archivo específico o carpeta con un número de bus proporcionado
-    ruta_de_entrada = "ruta_de_entrada"
-    numero_bus = "1234"  # Número de bus de ejemplo
-    datos = sensor(ruta_de_entrada, numero_bus)
-    print(datos)
