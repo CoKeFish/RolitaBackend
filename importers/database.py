@@ -1,6 +1,6 @@
 import sqlite3
 
-from config import HEADERS_SPECIFIC, COMMON_HEADERS, vehiculos_headers, versiones_trama_headers, conductores_headers, \
+from importers.config import HEADERS_SPECIFIC, COMMON_HEADERS, vehiculos_headers, versiones_trama_headers, conductores_headers, \
     foreign_keys
 
 

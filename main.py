@@ -1,11 +1,12 @@
 import os
 import argparse
-from sensor_data_processor import sensor  # Importar módulo de procesamiento de sensores
-from save_to_database import guardar_en_base_de_datos
-from file_processor import process_file  # Importar process_file desde file_processor.py
+
+from importers.file_processor import process_file
+from importers.save_to_database import guardar_en_base_de_datos
+from importers.sensor_data_processor import sensor
 
 
-def procesar_archivos(input_path, output_path, db_path, tipo_archivo):
+def procesar_archivos(input_path: str, output_path: str, db_path, tipo_archivo: str):
     """
     Procesa archivos individuales, carpetas de archivos, o carpetas con subcarpetas de archivos .log o .txt,
     y guarda los resultados en una base de datos SQLite.

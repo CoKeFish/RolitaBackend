@@ -1,7 +1,7 @@
 ﻿import json
 from datetime import datetime
 
-from config import LOG_PATTERN
+from importers.config import LOG_PATTERN
 
 
 def extract_json_objects(logs):

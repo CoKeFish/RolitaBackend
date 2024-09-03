@@ -2,10 +2,10 @@
 import re
 import sqlite3
 
-from config import HEADERS_SPECIFIC, COMMON_HEADERS, versiones_trama_headers, conductores_headers, vehiculos_headers, \
+from importers.config import HEADERS_SPECIFIC, COMMON_HEADERS, versiones_trama_headers, conductores_headers, vehiculos_headers, \
     inserted_vehiculos, inserted_versiones, inserted_conductores, foreign_keys
-from data_extractor import extract_json_objects, extract_values
-from database import create_connection, insert_data, create_tables
+from importers.data_extractor import extract_json_objects, extract_values
+from importers.database import create_connection, insert_data, create_tables
 
 
 def process_file(input_path, output_path, db_path):
