@@ -169,9 +169,9 @@ versiones_trama_headers = [
     ("versionTrama", "TEXT")                    # Versión de la trama (ej. 'E.1.0.0')
 ]
 
-foreign_keys = {
+foreign_keys = [
     ("FOREIGN KEY(idVehiculo)", "REFERENCES Vehiculos(idVehiculo)"),
     ("FOREIGN KEY(idConductor)", "REFERENCES Conductores(idConductor)"),
     ("FOREIGN KEY(idVersionTrama)", "REFERENCES VersionesTrama(idVersionTrama)")
-}
+]
 ignorar_headers = ["", ""]

@@ -222,22 +222,7 @@ def load_existing_data(conn):
 
 
 def get_headers_for_type_names(tipo, common_headers, specific_headers, foreign_keys, vehiculos_headers, conductores_headers, versiones_trama_headers):
-    """
-    Genera solo los nombres de los encabezados necesarios para la inserción de datos en la base de datos según el tipo de trama,
-    y los devuelve como tuplas de dos valores (nombre, tipo).
 
-    Args:
-    - tipo: El tipo de trama de datos.
-    - common_headers: Encabezados comunes para todas las tramas.
-    - specific_headers: Encabezados específicos para cada tipo de trama.
-    - foreign_keys: Claves foráneas que se deben agregar a los encabezados.
-    - vehiculos_headers: Encabezados de la tabla Vehiculos.
-    - conductores_headers: Encabezados de la tabla Conductores.
-    - versiones_trama_headers: Encabezados de la tabla VersionesTrama.
-
-    Returns:
-    - Lista de tuplas con dos valores: (nombre de encabezado, tipo).
-    """
     # Excluir encabezados que pertenecen a otras tablas (Vehiculos, Conductores, VersionesTrama)
     exclude_headers = {header for header, _ in vehiculos_headers + conductores_headers + versiones_trama_headers}
 
