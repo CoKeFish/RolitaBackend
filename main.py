@@ -10,6 +10,7 @@ def procesar_archivos(input_path, output_path, db_path, tipo_archivo):
     Procesa archivos individuales, carpetas de archivos, o carpetas con subcarpetas de archivos .log o .txt,
     y guarda los resultados en una base de datos SQLite.
     """
+    # Crear directorio de salida si no existe
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
