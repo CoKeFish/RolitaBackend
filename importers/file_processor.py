@@ -1,14 +1,16 @@
 ﻿# file_processor.py
-import re
-import sqlite3
 
-from importers.config import HEADERS_SPECIFIC, COMMON_HEADERS, versiones_trama_headers, conductores_headers, vehiculos_headers, \
-    inserted_vehiculos, inserted_versiones, inserted_conductores, foreign_keys
+import psycopg2
+from psycopg2 import sql
+
+from importers.config import HEADERS_SPECIFIC, COMMON_HEADERS, versiones_trama_headers, conductores_headers, \
+    vehiculos_headers, \
+    foreign_keys, db_params
 from importers.data_extractor import extract_json_objects, extract_values
-from importers.database import create_connection, insert_data, create_tables
+from importers.database import create_connection, create_tables
 
 
-def process_file(input_path, output_path, db_path):
+def process_file(input_path: str):
     """
     Procesa un archivo de entrada y guarda los datos extraídos en una base de datos SQLite.
     """
@@ -21,7 +23,7 @@ def process_file(input_path, output_path, db_path):
     funciones_extraccion = {key: extract_values for key in HEADERS_SPECIFIC}
 
     # Conectar a la base de datos
-    conn = create_connection(db_path)
+    conn = create_connection(db_params)
 
     # Crear tablas si no existen
     create_tables(conn)
@@ -30,7 +32,8 @@ def process_file(input_path, output_path, db_path):
     load_existing_data(conn)
 
     # Iniciar una transacción para inserciones por lotes
-    conn.execute('BEGIN')
+    cursor = conn.cursor()  # Crear un cursor
+    cursor.execute('BEGIN')  # Iniciar la transacción
 
     # Contenedores para inserciones en lote
     batch_vehiculos = []
@@ -93,19 +96,28 @@ def process_file(input_path, output_path, db_path):
 
 
 def insert_data_batch(conn, table_name, headers, data_batch):
-    """Inserta datos en una tabla específica en lote."""
-    placeholders = ', '.join('?' * len(headers))
-    columns = ', '.join(
-        [header.replace(' ', '_') for header, _ in headers])  # Asegúrate de que los nombres de columnas sean válidos
+    """Inserta datos en una tabla específica en lote para PostgreSQL."""
 
-    sql = f"INSERT OR REPLACE INTO {table_name} ({columns}) VALUES ({placeholders})"
+    # Preparar los placeholders y columnas
+    placeholders = ', '.join(['%s'] * len(headers))
+    columns = ', '.join([header.replace(' ', '_') for header, _ in headers])  # Asegúrate de que los nombres de columnas sean válidos
+
+    # Crear la consulta SQL usando psycopg2's sql module para seguridad
+    sql_query = sql.SQL(f"""
+        INSERT INTO {table_name} ({columns}) 
+        VALUES ({placeholders})
+        ON CONFLICT DO NOTHING
+    """)
 
     try:
         cursor = conn.cursor()
-        cursor.executemany(sql, data_batch)
+        cursor.executemany(sql_query, data_batch)
         conn.commit()
-    except sqlite3.Error as e:
-        print(f"Error al insertar datos en la tabla {table_name}: {e} - SQL: {sql}")
+        print(f"Datos insertados en la tabla {table_name} exitosamente.")
+    except psycopg2.Error as e:
+        print(f"Error al insertar datos en la tabla {table_name}: {e}")
+    finally:
+        cursor.close()
 
 
 def prepare_data_for_insertion(obj, headers, vehiculos_headers, conductores_headers, versiones_trama_headers):
@@ -122,6 +134,12 @@ def prepare_data_for_insertion(obj, headers, vehiculos_headers, conductores_head
     conductores_data = {}
     versiones_trama_data = {}
 
+    # Comprobar y asignar idVersionTrama si versionTrama es [['E.1.0.0']]
+    version_trama = obj.get('versionTrama')
+    if version_trama == 'E.1.0.0':
+        versiones_trama_data['idVersionTrama'] = 1
+
+
     # Separar los datos para las tablas específicas
     for header, dtype in vehiculos_headers:
         if header in obj:
@@ -134,6 +152,11 @@ def prepare_data_for_insertion(obj, headers, vehiculos_headers, conductores_head
     for header, dtype in versiones_trama_headers:
         if header in obj:
             versiones_trama_data[header] = transform_data(header, obj.get(header))
+
+
+    version_trama = obj.get('idConductor')
+    if version_trama == 'No Disponible':
+        conductores_data['sexo'] = 'Hombre'
 
     # Extraer los valores de datos para la tabla principal (COMMON_HEADERS + HEADERS_SPECIFIC)
     for header in headers:
@@ -180,7 +203,7 @@ def transform_data(header, value):
     elif header == "idConductor":
         # Si el valor es 'No Disponible', establecer a 0
         if value == "No Disponible":
-            return 0
+            return -1
         # Si es otro valor, intenta convertirlo a entero
         try:
             return int(value)

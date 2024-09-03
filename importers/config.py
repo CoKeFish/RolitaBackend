@@ -3,6 +3,14 @@
 
 import re
 
+db_params = {
+    'dbname': 'mi_base_de_datos',  # Tu nueva base de datos
+    'user': 'postgres',  # Usuario con permisos de acceso
+    'password': 'rody2601',  # Tu contraseña conocida
+    'host': 'localhost',  # 'localhost' para conexión local
+    'port': 5432  # Puerto predeterminado de PostgreSQL
+}
+
 # Crear listas globales para mantener los identificadores únicos
 inserted_vehiculos = set()
 inserted_conductores = set()
@@ -19,8 +27,8 @@ COMMON_HEADERS = [
     ("idVehiculo", "INTEGER"),
     ("idRuta", "TEXT"),
     ("idConductor", "INTEGER"),
-    ("fechaHoraLecturaDato", "DATETIME"),
-    ("fechaHoraEnvioDato", "DATETIME"),
+    ("fechaHoraLecturaDato", "TIMESTAMP "),
+    ("fechaHoraEnvioDato", "TIMESTAMP "),
     ("tipoBus", "TEXT"),
     ("latitud", "REAL"),
     ("longitud", "REAL"),
@@ -29,7 +37,6 @@ COMMON_HEADERS = [
     ("tramaRetransmitida", "BOOLEAN"),
     ("tipoFreno", "TEXT"),
 ]
-
 
 HEADERS_SPECIFIC = {
     "P20": [
@@ -148,25 +155,24 @@ HEADERS_SPECIFIC = {
     ],
 }
 
-
 # Listas de encabezados para las nuevas tablas
 # Listas de encabezados con tipos de datos para las nuevas tablas
 vehiculos_headers = [
     ("idVehiculo", "INTEGER PRIMARY KEY"),  # Identificador único de vehículo
-    ("tipoBus", "TEXT"),                    # Tipo de bus (ej. 'Articulado', 'Biarticulado')
-    ("idOperador", "TEXT"),                 # Identificador del operador del bus
-    ("tecnologiaMotor", "INTEGER"),            # Tecnología del motor (ej. 'Diésel', 'Eléctrico')
-    ("tipoFreno", "INTEGER")                   # Tipo de freno (ej. 'Hidráulico', 'Neumático')
+    ("tipoBus", "TEXT"),  # Tipo de bus (ej. 'Articulado', 'Biarticulado')
+    ("idOperador", "TEXT"),  # Identificador del operador del bus
+    ("tecnologiaMotor", "INTEGER"),  # Tecnología del motor (ej. 'Diésel', 'Eléctrico')
+    ("tipoFreno", "INTEGER")  # Tipo de freno (ej. 'Hidráulico', 'Neumático')
 ]
 
 conductores_headers = [
     ("idConductor", "INTEGER PRIMARY KEY"),  # Identificador único del conductor
-    ("sexo", "TEXT")                        # Sexo del conductor (ej. 'M' o 'F')
+    ("sexo", "TEXT")  # Sexo del conductor (ej. 'M' o 'F')
 ]
 
 versiones_trama_headers = [
     ("idVersionTrama", "INTEGER PRIMARY KEY"),  # Identificador único de la versión de trama
-    ("versionTrama", "TEXT")                    # Versión de la trama (ej. 'E.1.0.0')
+    ("versionTrama", "TEXT")  # Versión de la trama (ej. 'E.1.0.0')
 ]
 
 foreign_keys = [

@@ -1,34 +1,43 @@
-import sqlite3
+import psycopg2
+from psycopg2 import sql
 
-from importers.config import HEADERS_SPECIFIC, COMMON_HEADERS, vehiculos_headers, versiones_trama_headers, conductores_headers, \
+from importers.config import HEADERS_SPECIFIC, COMMON_HEADERS, vehiculos_headers, versiones_trama_headers, \
+    conductores_headers, \
     foreign_keys
 
 
-def create_connection(db_path):
-    """Crea una conexión a la base de datos SQLite."""
+def create_connection(db_params):
+    """Crea una conexión a la base de datos PostgreSQL."""
     try:
-        conn = sqlite3.connect(db_path)
-        print(f"Conexión a la base de datos en {db_path} exitosa.")
+        conn = psycopg2.connect(**db_params)
+        print(f"Conexión a la base de datos PostgreSQL exitosa.")
         return conn
-    except sqlite3.Error as e:
+    except psycopg2.Error as e:
         print(f"Error al conectar con la base de datos: {e}")
         return None
 
 
 def insert_data(conn, table_name, headers, data):
     """Inserta datos en una tabla específica."""
-    placeholders = ', '.join('?' * len(headers))
+    placeholders = ', '.join(['%s'] * len(headers))
     columns = ', '.join(
         [header.replace(' ', '_') for header in headers])  # Asegúrate de que los nombres de columnas sean válidos
 
-    sql = f"INSERT OR REPLACE INTO {table_name} ({columns}) VALUES ({placeholders})"
+    # Preparar la consulta SQL para INSERT con manejo de conflictos
+    sql_query = sql.SQL(f"""
+        INSERT INTO {table_name} ({columns}) 
+        VALUES ({placeholders}) 
+        ON CONFLICT DO NOTHING
+    """)
 
     try:
         cursor = conn.cursor()
-        cursor.execute(sql, data)
+        cursor.execute(sql_query, data)
         conn.commit()
-    except sqlite3.Error as e:
-        print(f"Error al insertar datos en la tabla {table_name}: {e} - SQL: {sql} - Datos: {data}")
+    except psycopg2.Error as e:
+        print(f"Error al insertar datos en la tabla {table_name}: {e} - SQL: {sql_query} - Datos: {data}")
+    finally:
+        cursor.close()
 
 
 def create_table(conn, table_name, headers):
@@ -39,13 +48,15 @@ def create_table(conn, table_name, headers):
         columns = ', '.join([f"{header} {dtype}" for header, dtype in headers])
 
         # Crear la tabla
-        sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
-        cursor.execute(sql)
+        sql_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
+        cursor.execute(sql_query)
 
         conn.commit()
         print(f"Tabla {table_name} creada exitosamente.")
-    except sqlite3.Error as e:
+    except psycopg2.Error as e:
         print(f"Error al crear la tabla {table_name}: {e}")
+    finally:
+        cursor.close()
 
 
 def create_specific_tables(conn):
@@ -76,12 +87,14 @@ def create_tables(conn):
             combined_headers = headers + filtered_common_headers_with_foreign_keys
             # Asegúrate de que los nombres de columnas no tengan espacios o caracteres no permitidos
             columns = ', '.join([f"{header} {dtype}" for header, dtype in combined_headers])
-            sql = f"CREATE TABLE IF NOT EXISTS {tipo} ({columns})"
-            cursor.execute(sql)
+            sql_query = f"CREATE TABLE IF NOT EXISTS {tipo} ({columns})"
+            cursor.execute(sql_query)
         conn.commit()
         print("Todas las tablas creadas exitosamente.")
-    except sqlite3.Error as e:
+    except psycopg2.Error as e:
         print(f"Error al crear tablas: {e}")
+    finally:
+        cursor.close()
 
 
 def exclude_headers_and_add_foreign_keys(common_headers, foreign_keys, *tables_headers):
