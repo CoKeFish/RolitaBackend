@@ -3,6 +3,11 @@
 
 import re
 
+# Crear listas globales para mantener los identificadores únicos
+inserted_vehiculos = set()
+inserted_conductores = set()
+inserted_versiones = set()
+
 # Patrón para identificar el inicio de cada log, basado en la fecha/hora
 LOG_PATTERN = re.compile(r'\[\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}]')
 

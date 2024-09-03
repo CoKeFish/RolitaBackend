@@ -1,7 +1,8 @@
 ﻿# file_processor.py
 import re
 
-from config import HEADERS_SPECIFIC, COMMON_HEADERS, versiones_trama_headers, conductores_headers, vehiculos_headers
+from config import HEADERS_SPECIFIC, COMMON_HEADERS, versiones_trama_headers, conductores_headers, vehiculos_headers, \
+    inserted_vehiculos, inserted_versiones, inserted_conductores
 from data_extractor import extract_json_objects, extract_values
 from database import create_connection, insert_data, create_tables
 
@@ -24,6 +25,9 @@ def process_file(input_path, output_path, db_path):
     # Crear tablas si no existen
     create_tables(conn)
 
+    # Cargar datos existentes al inicio
+    load_existing_data(conn)
+
     # Procesar cada objeto JSON extraído
     for obj in json_objects:
         # Identificar el tipo del objeto JSON usando las claves disponibles
@@ -40,15 +44,21 @@ def process_file(input_path, output_path, db_path):
             )
 
             # Insertar datos en las tablas relacionadas antes de insertar en la tabla principal
-            if vehiculos_data['idVehiculo']:  # Si hay datos de Vehiculo
+            if vehiculos_data['idVehiculo'] and vehiculos_data['idVehiculo'] not in inserted_vehiculos:
+                # Insertar solo si el idVehiculo no está ya registrado
                 insert_data(conn, "Vehiculos", list(vehiculos_data.keys()), list(vehiculos_data.values()))
+                inserted_vehiculos.add(vehiculos_data['idVehiculo'])  # Añadir a la lista de identificadores insertados
 
-            if conductores_data['idConductor']:  # Si hay datos de Conductor
+            if conductores_data['idConductor'] and conductores_data['idConductor'] not in inserted_conductores:
+                # Insertar solo si el idConductor no está ya registrado
                 insert_data(conn, "Conductores", list(conductores_data.keys()), list(conductores_data.values()))
+                inserted_conductores.add(conductores_data['idConductor'])
 
-            if versiones_trama_data['versionTrama']:  # Si hay datos de VersionesTrama
+            if versiones_trama_data['versionTrama'] and versiones_trama_data['versionTrama'] not in inserted_versiones:
+                # Insertar solo si la versionTrama no está ya registrada
                 insert_data(conn, "VersionesTrama", list(versiones_trama_data.keys()),
                             list(versiones_trama_data.values()))
+                inserted_versiones.add(versiones_trama_data['versionTrama'])
 
             # Insertar los datos en la tabla principal correspondiente
             insert_data(conn, tipo, list(main_data.keys()), list(main_data.values()))
@@ -109,7 +119,6 @@ def prepare_data_for_insertion(obj, headers, vehiculos_headers, conductores_head
                 main_data[header] = transform_data(header, obj.get(header))
 
     # Asignar los IDs a la tabla principal después de insertar en las tablas relacionadas
-    # Asumimos que transform_data ya convierte los datos y extrae los últimos 4 dígitos de idVehiculo.
     main_data['idVehiculo'] = vehiculos_data.get('idVehiculo', None)
     main_data['idConductor'] = conductores_data.get('idConductor', None)
     main_data['idVersionTrama'] = versiones_trama_data.get('idVersionTrama', None)
@@ -144,3 +153,33 @@ def transform_data(header, value):
 
     # Agregar más transformaciones si es necesario
     return value  # Devuelve el valor sin cambios si no hay transformaciones definidas
+
+
+def check_exists(conn, table_name, column_name, value):
+    """Verifica si un valor ya existe en una columna de una tabla."""
+    sql = f"SELECT 1 FROM {table_name} WHERE {column_name} = ? LIMIT 1"
+    cursor = conn.cursor()
+    cursor.execute(sql, (value,))
+    return cursor.fetchone() is not None
+
+
+def load_existing_data(conn):
+    """
+    Carga los datos existentes de las tablas Vehiculos, Conductores y VersionesTrama
+    para inicializar los conjuntos de identificadores ya insertados.
+    """
+    global inserted_vehiculos, inserted_conductores, inserted_versiones
+
+    cursor = conn.cursor()
+
+    # Cargar identificadores de Vehiculos existentes
+    cursor.execute("SELECT idVehiculo FROM Vehiculos")
+    inserted_vehiculos = {row[0] for row in cursor.fetchall()}
+
+    # Cargar identificadores de Conductores existentes
+    cursor.execute("SELECT idConductor FROM Conductores")
+    inserted_conductores = {row[0] for row in cursor.fetchall()}
+
+    # Cargar versiones de trama existentes
+    cursor.execute("SELECT versionTrama FROM VersionesTrama")
+    inserted_versiones = {row[0] for row in cursor.fetchall()}
