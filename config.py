@@ -142,3 +142,25 @@ HEADERS_SPECIFIC = {
         ("estadoDesgasteFrenos", "TEXT")
     ],
 }
+
+
+# Listas de encabezados para las nuevas tablas
+# Listas de encabezados con tipos de datos para las nuevas tablas
+vehiculos_headers = [
+    ("idVehiculo", "INTEGER PRIMARY KEY"),  # Identificador único de vehículo
+    ("tipoBus", "TEXT"),                    # Tipo de bus (ej. 'Articulado', 'Biarticulado')
+    ("idOperador", "TEXT"),                 # Identificador del operador del bus
+    ("tecnologiaMotor", "TEXT"),            # Tecnología del motor (ej. 'Diésel', 'Eléctrico')
+    ("tipoFreno", "TEXT")                   # Tipo de freno (ej. 'Hidráulico', 'Neumático')
+]
+
+conductores_headers = [
+    ("idConductor", "INTEGER PRIMARY KEY"),  # Identificador único del conductor
+    ("sexo", "TEXT")                        # Sexo del conductor (ej. 'M' o 'F')
+]
+
+versiones_trama_headers = [
+    ("idVersionTrama", "INTEGER PRIMARY KEY"),  # Identificador único de la versión de trama
+    ("versionTrama", "TEXT")                    # Versión de la trama (ej. 'E.1.0.0')
+]
+ignorar_headers = ["", ""]
