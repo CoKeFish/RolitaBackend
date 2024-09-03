@@ -150,8 +150,8 @@ vehiculos_headers = [
     ("idVehiculo", "INTEGER PRIMARY KEY"),  # Identificador único de vehículo
     ("tipoBus", "TEXT"),                    # Tipo de bus (ej. 'Articulado', 'Biarticulado')
     ("idOperador", "TEXT"),                 # Identificador del operador del bus
-    ("tecnologiaMotor", "TEXT"),            # Tecnología del motor (ej. 'Diésel', 'Eléctrico')
-    ("tipoFreno", "TEXT")                   # Tipo de freno (ej. 'Hidráulico', 'Neumático')
+    ("tecnologiaMotor", "INTEGER"),            # Tecnología del motor (ej. 'Diésel', 'Eléctrico')
+    ("tipoFreno", "INTEGER")                   # Tipo de freno (ej. 'Hidráulico', 'Neumático')
 ]
 
 conductores_headers = [
@@ -163,4 +163,10 @@ versiones_trama_headers = [
     ("idVersionTrama", "INTEGER PRIMARY KEY"),  # Identificador único de la versión de trama
     ("versionTrama", "TEXT")                    # Versión de la trama (ej. 'E.1.0.0')
 ]
+
+foreign_keys = {
+    ("FOREIGN KEY(idVehiculo)", "REFERENCES Vehiculos(idVehiculo)"),
+    ("FOREIGN KEY(idConductor)", "REFERENCES Conductores(idConductor)"),
+    ("FOREIGN KEY(idVersionTrama)", "REFERENCES VersionesTrama(idVersionTrama)")
+}
 ignorar_headers = ["", ""]
