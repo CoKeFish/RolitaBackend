@@ -38,7 +38,7 @@ def procesar_archivos(input_path: str, tipo_archivo: str):
             numero_bus = input("Introduce el número de bus: ")
             print(f"Procesando archivo de texto: {input_path}")
             datos = sensor(input_path, numero_bus)  # Procesar archivo específico con número de bus
-            guardar_en_base_de_datos(datos, 'sensores')
+            guardar_en_base_de_datos(datos, db_params, 'sensores')
     else:
         print("Ruta de entrada no válida. Por favor, proporciona una carpeta o un archivo individual.")
 
