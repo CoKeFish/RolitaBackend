@@ -20,14 +20,14 @@ def crear_tabla_puntos():
             Y DOUBLE PRECISION,
             objectid SERIAL,  -- Ya no es la clave primaria
             cenefa TEXT PRIMARY KEY,  -- Cenefa como clave primaria única
-            zona_sitp INTEGER,
+            zona_sitp TEXT,
             nombre TEXT,
             via TEXT,
             direccion_bandera TEXT,
             localidad TEXT,
             longitud DOUBLE PRECISION,
             latitud DOUBLE PRECISION,
-            consecutivo_zona INTEGER,
+            consecutivo_zona TEXT,
             tipo_m_s TEXT,
             consola TEXT,
             panel TEXT,
