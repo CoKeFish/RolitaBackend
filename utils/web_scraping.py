@@ -5,20 +5,56 @@ import re  # Importar para expresiones regulares
 import requests
 from bs4 import BeautifulSoup
 
-from utils.DB_consult import cenefaPorDireccion, objectIdPorCodigo, DuplicatedValueError
+from utils.DB_consult import cenefaPorDireccion, objectIdPorCodigo, DuplicatedValueError, NoDataFoundError
 
 
-def extraer_codigo_nombre_ruta(html_content):
+def extraer_codigo_ruta(html_content):
     """
-    Extrae el código y nombre de la ruta desde el contenido HTML.
+    Extrae el código de la ruta desde el contenido HTML.
+
+    Args:
+    - html_content (str): Contenido HTML de la página.
+
+    Returns:
+    - str: Código de la ruta.
     """
     soup = BeautifulSoup(html_content, "html.parser")
     ruta_info = soup.find("div", class_="infoRutaCodigo")
 
     if ruta_info:
         codigo_ruta = ruta_info.find("div", class_="codigoRuta").text.strip()
+        return codigo_ruta
+
+    return None
+
+
+def extraer_origen_destino(html_content):
+    """
+    Extrae el origen y destino de la ruta desde el contenido HTML.
+    Si el nombre de la ruta contiene un '-', asume que es 'origen - destino'.
+    Si no contiene '-', asume que es solo el destino.
+
+    Args:
+    - html_content (str): Contenido HTML de la página.
+
+    Returns:
+    - tuple: (origen, destino)
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    ruta_info = soup.find("div", class_="infoRutaCodigo")
+
+    if ruta_info:
         nombre_ruta = ruta_info.find("h4", class_="rutaEstacionesNombre").text.strip()
-        return codigo_ruta, nombre_ruta
+
+        # Separar origen y destino si el nombre de la ruta contiene un guion
+        if '-' in nombre_ruta:
+            origen, destino = map(str.strip, nombre_ruta.split('-', 1))
+        else:
+            origen = None  # No hay origen, solo destino
+            destino = nombre_ruta.strip()
+
+        return origen, destino
+
     return None, None
 
 
@@ -42,10 +78,38 @@ def extraer_zonas(html_content):
 
 def extraer_recorridos(html_content):
     """
-    Extrae los recorridos de la ruta desde el contenido HTML.
+    Extrae los recorridos de la ruta desde el contenido HTML y los devuelve como una lista de listas de diccionarios.
+    
+    Args:
+    - html_content (str): Contenido HTML de la página.
+    
+    Returns:
+    - dict: Diccionario con claves 'recorrido1' y 'recorrido2', cada uno conteniendo una lista de diccionarios 
+            con el número, nombre y dirección de cada parada.
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    recorridos_div = soup.find("div", class_="recorrido1")  # Extrayendo los recorridos en un sentido
+
+    # Diccionario para almacenar ambos recorridos
+    recorridos = {
+        "recorrido1": extraer_recorrido(soup, "recorrido1"),
+        "recorrido2": extraer_recorrido(soup, "recorrido2")
+    }
+
+    return recorridos
+
+
+def extraer_recorrido(soup, recorrido_class):
+    """
+    Extrae un recorrido de la ruta desde el contenido HTML y lo devuelve como una lista de diccionarios.
+    
+    Args:
+    - soup (BeautifulSoup): Objeto BeautifulSoup del HTML.
+    - recorrido_class (str): Clase CSS del recorrido a buscar.
+    
+    Returns:
+    - list: Lista de diccionarios con el número, nombre y dirección de cada parada.
+    """
+    recorridos_div = soup.find("div", class_=recorrido_class)  # Extrayendo los recorridos en un sentido
 
     recorridos = []
 
@@ -53,9 +117,24 @@ def extraer_recorridos(html_content):
         paradas = recorridos_div.find_all("div", class_="estacionRecorrido")
         for parada in paradas:
             # Limpieza del nombre y dirección de la parada para eliminar espacios y saltos de línea innecesarios
-            nombre_parada = ' '.join(parada.find("div", class_="estNombre").text.split()).strip()
+            nombre_parada_completo = ' '.join(parada.find("div", class_="estNombre").text.split()).strip()
             direccion_parada = ' '.join(parada.find("div", class_="estDireccion").text.split()).strip()
-            recorridos.append((nombre_parada, direccion_parada))
+
+            # Separar el número del nombre usando el primer punto
+            if '.' in nombre_parada_completo:
+                numero, nombre_parada = map(str.strip, nombre_parada_completo.split('.', 1))
+            else:
+                numero = None  # En caso de que no haya un número
+                nombre_parada = nombre_parada_completo
+
+            # Crear el diccionario para esta parada
+            parada_dict = {
+                "numero": numero,
+                "nombre": nombre_parada,
+                "direccion": direccion_parada
+            }
+
+            recorridos.append(parada_dict)
 
     return recorridos
 
@@ -91,9 +170,24 @@ def guardar_en_csv(codigo_ruta, nombre_ruta, recorridos, output_folder):
         print(f"Error al guardar el archivo {output_file}: {e}")
 
 
+def procesar_ruta(recorrido, objectid, codigo_ruta, idRuta):
+    for parada in recorrido:
+        try:
+            cenefa = cenefaPorDireccion(parada['direccion'])  # Intentar obtener la 'cenefa'
+            insertar_ruta_punto(cenefa, objectid)  # Intentar insertar en la tabla
+        except DuplicatedValueError as e:
+            print(
+                f"[ERROR] DuplicatedValueError: Ruta '{codigo_ruta}' (ID Ruta: {idRuta}) - Parada '{parada['nombre']}' con Dirección '{parada['direccion']}': {e}"
+            )
+        except NoDataFoundError as e:
+            print(
+                f"[ERROR] NoDataFoundError: Ruta '{codigo_ruta}' (ID Ruta: {idRuta}) - Parada '{parada['nombre']}' con Dirección '{parada['direccion']}': {e}"
+            )
+
+
 def main():
     # Rango de idRuta a iterar
-    start_id = 128
+    start_id = 144
     end_id = 1275
 
     # Solicitar la carpeta de destino al usuario
@@ -107,35 +201,52 @@ def main():
         response = requests.get(url)
         html_content = response.content
 
-        # Extraer código y nombre de ruta
-        codigo_ruta, nombre_ruta = extraer_codigo_nombre_ruta(html_content)
-        
+        # Extraer código de ruta
+        codigo_ruta = extraer_codigo_ruta(html_content)
+
+        # Extraer origen y destino de la ruta
+        origen_ruta, destino_ruta = extraer_origen_destino(html_content)
+
         # Extraer zonas de la ruta
         zonas = extraer_zonas(html_content)
 
         # Extraer recorridos solo si se obtiene el código y nombre de la ruta
-        if codigo_ruta and nombre_ruta:
-            recorridos = extraer_recorridos(html_content)
+        if codigo_ruta:
+            
 
             # Guardar en CSV
             # guardar_en_csv(codigo_ruta, nombre_ruta, recorridos, output_folder)
             try:
-                myObjectId = objectIdPorCodigo(codigo_ruta)
 
-                for nombre_parada, direccion_parada in recorridos:
-                    try:
-                        cenefa = cenefaPorDireccion(direccion_parada)  # Intentar obtener la 'cenefa'
-                        insertar_ruta_punto(cenefa, myObjectId)  # Intentar insertar en la tabla
-                    except DuplicatedValueError as e:
-                        print(
-                            f"Error procesando {codigo_ruta} en la parada '{nombre_parada}' con dirección '{direccion_parada}' : {e}")
+                if origen_ruta and destino_ruta:
+                    recorridos = extraer_recorridos(html_content)
+                    
+                    myObjectIdIda = objectIdPorCodigo(codigo_ruta, destino_ruta)
+                    myObjectIdRegreso = objectIdPorCodigo(codigo_ruta, origen_ruta)
+    
+                        # Procesa ida
+                    procesar_ruta(recorridos['recorrido1'], myObjectIdIda, codigo_ruta, idRuta)
+    
+                        # Procesa regreso
+                    procesar_ruta(recorridos['recorrido2'], myObjectIdRegreso, codigo_ruta, idRuta)
+                elif destino_ruta:
+                    recorridos = extraer_recorridos(html_content)
+                    myObjectId = objectIdPorCodigo(codigo_ruta, destino_ruta)
+                    procesar_ruta(recorridos['recorrido1'], myObjectId, codigo_ruta, idRuta)
+                else:
+                    print(
+                        f"No se pudo extraer el origen o destino de la ruta para idRuta={idRuta}. Con código {codigo_ruta}.")
+                    continue
 
-
-            except IndexError as e:
-                print(f"Error al obtener el ObjectID para la ruta '{codigo_ruta} - {nombre_ruta}': {e}")
-
+            except NoDataFoundError as e:
+                print(
+                    f"[ERROR] NoDataFoundError: No se pudo obtener el ObjectID para la Ruta '{codigo_ruta} - {nombre_ruta}' (ID Ruta: {idRuta}): {e}"
+                )
             except DuplicatedValueError as e:
-                print(f"Error al procesar la ruta '{codigo_ruta} - {nombre_ruta}': {e}")
+                print(
+                    f"[ERROR] DuplicatedValueError: Error procesando la Ruta '{codigo_ruta} - {nombre_ruta}' (ID Ruta: {idRuta}): {e}"
+                )
+
 
 
         else:

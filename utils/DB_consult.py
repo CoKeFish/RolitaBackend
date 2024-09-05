@@ -45,13 +45,14 @@ def cenefaPorDireccion(direccion):
         # Obtener los resultados
         resultados = cursor.fetchall()
 
+        if len(resultados) == 0 or len(resultados[0]) == 0:
+            raise NoDataFoundError(f"Error: No se encontraron datos en cenefaPorDireccion: {resultados}")
+            return None
+
         if len(resultados) > 1 or len(resultados[0]) > 1:
             raise DuplicatedValueError(f"Error: Se encontraron más de un resultado en cenefaPorDireccion: {resultados}")
             return None
 
-        if len(resultados) == 0 or len(resultados[0]) == 0:
-            raise NoDataFoundError(f"Error: No se encontraron datos en cenefaPorDireccion: {resultados}")
-            return None
         myresult = resultados[0][0]
         return myresult
 
@@ -67,25 +68,27 @@ def cenefaPorDireccion(direccion):
             conn.close()
 
 
-def objectIdPorCodigo(codigo):
+def objectIdPorCodigo(codigo, destino=None):
     """
-    Busca rutas en la tabla 'rutas_transmilenio' donde el 'codigo_definitivo_ruta_zonal' contiene un texto específico.
+    Busca rutas en la tabla 'rutas_transmilenio' donde el 'route_name_ruta_zonal' contiene un texto específico.
+    Si hay valores duplicados, utiliza 'destino' para refinar la búsqueda.
 
     Args:
     - codigo (str): El código o parte del código de la ruta a buscar.
+    - destino (str, opcional): Parte del destino para refinar la búsqueda en caso de duplicados.
 
     Returns:
-    - list: Lista de registros que coinciden con la búsqueda.
+    - int: ObjectID del registro que coincide con la búsqueda.
     """
     try:
         # Conectar a la base de datos PostgreSQL
         conn = psycopg2.connect(**db_params)
         cursor = conn.cursor()
 
-        # Definir la consulta SQL
+        # Definir la consulta SQL inicial
         query = """
         SELECT objectid FROM rutas_transmilenio
-        WHERE route_name_ruta_zonal LIKE %s;
+        WHERE REPLACE(route_name_ruta_zonal, ' ', '') ILIKE %s;
         """
 
         # Ejecutar la consulta con el parámetro proporcionado
@@ -93,18 +96,33 @@ def objectIdPorCodigo(codigo):
 
         # Obtener los resultados
         resultados = cursor.fetchall()
-
-        if len(resultados) > 1 or len(resultados[0]) > 1:
-            raise DuplicatedValueError(f"Error: Se encontraron más de un resultado en objectIdPorCodigo: {resultados}")
-            return None
-
-        if len(resultados) == 0 or len(resultados[0]) == 0:
+        if len(resultados) == 0:
             raise NoDataFoundError(f"Error: No se encontraron datos en objectIdPorCodigo: {resultados}")
-            return None
-        
+
+        # Verificar si hay más de un resultado
+        if len(resultados) > 1:
+            if destino is not None:
+                # Si hay duplicados y 'destino' está proporcionado, refinar la búsqueda
+                query_refinada = """
+                SELECT objectid FROM rutas_transmilenio
+                WHERE route_name_ruta_zonal ILIKE %s
+                AND destino_ruta_zonal ILIKE %s;
+                """
+                cursor.execute(query_refinada, (f'%{codigo}%', f'%{destino}%'))
+                resultados = cursor.fetchall()
+
+                if len(resultados) == 0:
+                    raise NoDataFoundError(f"Error: No se encontraron datos tras refinar con el destino: {destino}")
+
+                if len(resultados) > 1:
+                    raise DuplicatedValueError(f"Error: Se encontraron más de un resultado incluso después de refinar con el destino '{destino}': {resultados}")
+
+            else:
+                raise DuplicatedValueError(f"Error: Se encontraron más de un resultado en objectIdPorCodigo: {resultados}")
+
+        # Obtener el ObjectID único
         myresult = resultados[0][0]
         return myresult
-
 
     except psycopg2.Error as e:
         print(f"Error al ejecutar la consulta: {e}")
@@ -116,7 +134,6 @@ def objectIdPorCodigo(codigo):
             cursor.close()
         if conn:
             conn.close()
-
 
 if __name__ == "__main__":
     # Ejemplo de uso
